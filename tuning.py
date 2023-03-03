@@ -8,8 +8,8 @@ import mlflow
 import mlflow.pytorch
 from torch.utils.data import DataLoader
 
-
 def train_mnist(config):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     with mlflow.start_run():
         mlflow.log_params(config)
 
@@ -35,14 +35,14 @@ def train_mnist(config):
         X = torch.tensor(X, dtype=torch.float32)
         y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1)
     
-        # Move input data to GPU
-        X = X.cuda()
-        y = y.cuda()
+		# Move input data to GPU
+        X = X.to(device)
+        y = y.to(device)
 
         dataset = torch.utils.data.TensorDataset(X, y)
-        batch_size = 5
+        batch_size = 64
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
+        
 
         # Define neural network architecture
         class Net(nn.Module):
@@ -59,7 +59,7 @@ def train_mnist(config):
                 return out
 
         # Instantiate neural network
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+
         net = Net().to(device)
 
         # Define loss function and optimizer
@@ -70,12 +70,10 @@ def train_mnist(config):
         num_epochs = 1
         for epoch in range(num_epochs):
             for i, batch in enumerate(dataloader):
-                # Get a batch of input data and target
                 X_batch, y_batch = batch
-
                 # Forward pass
-                outputs = net(X)
-                loss = criterion(outputs, y)
+                outputs = net(X_batch)
+                loss = criterion(outputs, y_batch)
 
                 # Backward pass and optimize
                 optimizer.zero_grad()
@@ -88,7 +86,6 @@ def train_mnist(config):
 
             # Print progress
             if (epoch+1) % 100 == 0:
-                print("[%d, %5d] loss: %.3f" % (epoch + 1, i + 1, running_loss / epoch_steps))
                 tune.report(loss=loss.item(), step=epoch+1)
 
         return  {"loss": loss.item()}
@@ -100,7 +97,7 @@ if __name__ == "__main__":
     ray.init(num_gpus=1)
 
     tuner = tune.Tuner(
-        tune.with_resources(train_mnist, {"cpu": 4, "gpu": 1}),
+        tune.with_resources(train_mnist, {"cpu":4,"gpu": 1}),
         tune_config=tune.TuneConfig(mode="min", metric="loss"),
         param_space={
             "lr": tune.grid_search([0.001, 0.01, 0.1]),
