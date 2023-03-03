@@ -46,10 +46,10 @@ def train_mnist(config):
 
         # Define neural network architecture
         class Net(nn.Module):
-            def __init__(self):
+            def __init__(self, hidden):
                 super(Net, self).__init__()
-                self.fc1 = nn.Linear(41, 1)
-                self.fc2 = nn.Linear(1, 1)
+                self.fc1 = nn.Linear(41, hidden)
+                self.fc2 = nn.Linear(hidden, 1)
                 self.relu = nn.ReLU()
 
             def forward(self, x):
@@ -60,7 +60,7 @@ def train_mnist(config):
 
         # Instantiate neural network
 
-        net = Net().to(device)
+        net = Net(config["hidden_size"]).to(device)
 
         # Define loss function and optimizer
         criterion = nn.MSELoss()
@@ -101,6 +101,7 @@ if __name__ == "__main__":
         tune_config=tune.TuneConfig(mode="min", metric="loss"),
         param_space={
             "lr": tune.grid_search([0.001, 0.01, 0.1]),
+            "hidden_size": tune.choice([1,2,3])
             }
         )
     
