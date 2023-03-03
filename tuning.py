@@ -6,9 +6,10 @@ from ray import tune
 from ray.tune.examples.mnist_pytorch import get_data_loaders, ConvNet, train, test
 import mlflow 
 import mlflow.pytorch
+from torch.utils.data import DataLoader
+
 
 def train_mnist(config):
-    #torch.save(net.state_dict(), "model.pt")
     with mlflow.start_run():
         mlflow.log_params(config)
 
@@ -33,6 +34,15 @@ def train_mnist(config):
         # Convert data to PyTorch tensors
         X = torch.tensor(X, dtype=torch.float32)
         y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1)
+    
+        # Move input data to GPU
+        X = X.cuda()
+        y = y.cuda()
+
+        dataset = torch.utils.data.TensorDataset(X, y)
+        batch_size = 5
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
 
         # Define neural network architecture
         class Net(nn.Module):
@@ -49,7 +59,8 @@ def train_mnist(config):
                 return out
 
         # Instantiate neural network
-        net = Net()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        net = Net().to(device)
 
         # Define loss function and optimizer
         criterion = nn.MSELoss()
@@ -58,35 +69,38 @@ def train_mnist(config):
         # Train the neural network
         num_epochs = 1
         for epoch in range(num_epochs):
-            # Forward pass
-            outputs = net(X)
-            loss = criterion(outputs, y)
+            for i, batch in enumerate(dataloader):
+                # Get a batch of input data and target
+                X_batch, y_batch = batch
 
-            # Backward pass and optimize
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                # Forward pass
+                outputs = net(X)
+                loss = criterion(outputs, y)
 
-            mlflow.log_metric("loss", loss.item())
-            mlflow.pytorch.log_model(net, "model")
+                # Backward pass and optimize
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                mlflow.log_metric("loss", loss.item())
+                mlflow.pytorch.log_model(net, "model")
 
 
             # Print progress
             if (epoch+1) % 100 == 0:
+                print("[%d, %5d] loss: %.3f" % (epoch + 1, i + 1, running_loss / epoch_steps))
                 tune.report(loss=loss.item(), step=epoch+1)
 
         return  {"loss": loss.item()}
 
 if __name__ == "__main__":
-    #mlflow.set_tracking_uri('my-experiment')
     mlflow.set_tracking_uri('http://127.0.40:5000')
     mlflow.set_experiment("my-experiment")
-    #mlflow.create_experiment("my-experiment")
     
-    ray.init(num_cpus=4)
+    ray.init(num_gpus=1)
 
     tuner = tune.Tuner(
-        train_mnist,
+        tune.with_resources(train_mnist, {"cpu": 4, "gpu": 1}),
         tune_config=tune.TuneConfig(mode="min", metric="loss"),
         param_space={
             "lr": tune.grid_search([0.001, 0.01, 0.1]),
