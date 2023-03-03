@@ -91,10 +91,10 @@ def train_mnist(config):
         return  {"loss": loss.item()}
 
 if __name__ == "__main__":
+    ray.init(num_gpus=1)
+
     mlflow.set_tracking_uri('http://127.0.40:5000')
     mlflow.set_experiment("my-experiment")
-    
-    ray.init(num_gpus=1)
 
     tuner = tune.Tuner(
         tune.with_resources(train_mnist, {"cpu":4,"gpu": 1}),
@@ -104,7 +104,6 @@ if __name__ == "__main__":
             }
         )
     
-
     results = tuner.fit()
     
     best_result = results.get_best_result( 
