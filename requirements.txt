@@ -1,4 +1,3 @@
-torch
 ray[default]
 ray[tune]
 ray[air]

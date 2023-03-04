@@ -44,7 +44,7 @@ def train_mnist(config):
     y = y.to(device)
 
     dataset = torch.utils.data.TensorDataset(X, y)
-    batch_size = 64
+    batch_size = 40
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
     
 
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     tune_config = TuneConfig(
             metric="loss",
             mode="min",
-            num_samples=5
+            num_samples=4
             )
 
     tuner = tune.Tuner(
@@ -120,7 +120,7 @@ if __name__ == "__main__":
         param_space={
             "lr": tune.grid_search([0.001, 0.01, 0.1]),
             "hidden_size": tune.choice([1,2,3]),
-            "epoches": tune.choice([20, 31, 64])
+            "epoches": tune.choice([5, 10, 11])
             }
         )
     
