@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from ray.tune import CLIReporter
 from ray.air.config import RunConfig
 from ray.tune import TuneConfig
-
+import os
 
 def train_mnist(config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -110,7 +110,7 @@ if __name__ == "__main__":
             )
 
     tuner = tune.Tuner(
-        tune.with_resources(train_mnist, {"cpu": 1}),
+        tune.with_resources(train_mnist, {"gpu": 1}),
         tune_config=tune_config,
         run_config=RunConfig(
             verbose=3
