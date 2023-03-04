@@ -7,6 +7,10 @@ from ray.tune.examples.mnist_pytorch import get_data_loaders, ConvNet, train, te
 import mlflow 
 import mlflow.pytorch
 from torch.utils.data import DataLoader
+from ray.tune import CLIReporter
+from ray.air.config import RunConfig
+from ray.tune import TuneConfig
+
 
 def train_mnist(config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -67,8 +71,7 @@ def train_mnist(config):
         optimizer = torch.optim.Adam(net.parameters(), lr=config["lr"])
 
         # Train the neural network
-        num_epochs = 1
-        for epoch in range(num_epochs):
+        for epoch in range(config["epoches"]):
             for i, batch in enumerate(dataloader):
                 X_batch, y_batch = batch
                 # Forward pass
@@ -83,32 +86,47 @@ def train_mnist(config):
                 mlflow.log_metric("loss", loss.item())
                 mlflow.pytorch.log_model(net, "model")
 
+                # Print progress
+                print("Iteration {}: running loss {:.4f}".format(i, loss.item()))
+            print(f"Finished epoch {epoch}")
 
-            # Print progress
-            if (epoch+1) % 100 == 0:
-                tune.report(loss=loss.item(), step=epoch+1)
+
+        tune.report(loss=loss.item(), step=epoch+1)
+
 
         return  {"loss": loss.item()}
+
 
 if __name__ == "__main__":
     ray.init(num_gpus=1)
 
     mlflow.set_tracking_uri('http://127.0.40:5000')
     mlflow.set_experiment("my-experiment")
+    
+    reporter = CLIReporter(max_progress_rows=20, metric_columns=["loss"], print_intermediate_tables=5)
+    
+    tune_config = TuneConfig(
+            metric="loss",
+            mode="min",
+            num_samples=5
+            )
 
     tuner = tune.Tuner(
-        tune.with_resources(train_mnist, {"cpu":4,"gpu": 1}),
-        tune_config=tune.TuneConfig(mode="min", metric="loss"),
+        tune.with_resources(train_mnist, {"cpu": 4,"gpu": 1, "memory": 2000}),
+        tune_config=tune_config,
+        run_config=RunConfig(
+            verbose=3
+            ),
         param_space={
             "lr": tune.grid_search([0.001, 0.01, 0.1]),
-            "hidden_size": tune.choice([1,2,3])
+            "hidden_size": tune.choice([1,2,3]),
+            "epoches": tune.choice([20, 31, 64])
             }
         )
     
     results = tuner.fit()
     
-    best_result = results.get_best_result( 
-                metric="loss", mode="min")
+    best_result = results.get_best_result(metric="loss", mode="min")
     print("Best result", best_result)
 
     best_loss = best_result.metrics
