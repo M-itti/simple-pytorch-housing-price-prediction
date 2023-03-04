@@ -12,11 +12,13 @@ from ray.air.config import RunConfig
 from ray.tune import TuneConfig
 import os
 
+path = os.getcwd()
+
 def train_mnist(config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Load data
-    df = pd.read_csv('/home/mahdi/project/data/train.csv')
+    df = pd.read_csv(path+'/train.csv')
     X = df[['Id', 'OverallQual', 'YearBuilt', 'YearRemodAdd', 'BsmtFinType1_Unf', 
             'HasWoodDeck', 'HasOpenPorch', 'HasEnclosedPorch', 'Has3SsnPorch', 
             'HasScreenPorch', 'YearsSinceRemodel', 'Total_Home_Quality', 'LotFrontage', 
