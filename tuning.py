@@ -14,87 +14,85 @@ from ray.tune import TuneConfig
 
 def train_mnist(config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    with mlflow.start_run():
-        mlflow.log_params(config)
 
-        # Load data
-        df = pd.read_csv('/home/mahdi/project/data/train.csv')
-        X = df[['Id', 'OverallQual', 'YearBuilt', 'YearRemodAdd', 'BsmtFinType1_Unf', 
-                'HasWoodDeck', 'HasOpenPorch', 'HasEnclosedPorch', 'Has3SsnPorch', 
-                'HasScreenPorch', 'YearsSinceRemodel', 'Total_Home_Quality', 'LotFrontage', 
-                'LotArea', 'OverallCond', 'MasVnrArea', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 
-                'TotalBsmtSF', '1stFlrSF', '2ndFlrSF', 'LowQualFinSF', 'GrLivArea', 
-                'BsmtFullBath', 'BsmtHalfBath', 'FullBath', 'HalfBath', 'BedroomAbvGr', 
-                'KitchenAbvGr', 'TotRmsAbvGrd', 'Fireplaces', 'GarageYrBlt', 'GarageCars', 
-                'GarageArea', 'WoodDeckSF', 'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 
-                'ScreenPorch', 'PoolArea', 'MiscVal']]
+    # Load data
+    df = pd.read_csv('/home/mahdi/project/data/train.csv')
+    X = df[['Id', 'OverallQual', 'YearBuilt', 'YearRemodAdd', 'BsmtFinType1_Unf', 
+            'HasWoodDeck', 'HasOpenPorch', 'HasEnclosedPorch', 'Has3SsnPorch', 
+            'HasScreenPorch', 'YearsSinceRemodel', 'Total_Home_Quality', 'LotFrontage', 
+            'LotArea', 'OverallCond', 'MasVnrArea', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 
+            'TotalBsmtSF', '1stFlrSF', '2ndFlrSF', 'LowQualFinSF', 'GrLivArea', 
+            'BsmtFullBath', 'BsmtHalfBath', 'FullBath', 'HalfBath', 'BedroomAbvGr', 
+            'KitchenAbvGr', 'TotRmsAbvGrd', 'Fireplaces', 'GarageYrBlt', 'GarageCars', 
+            'GarageArea', 'WoodDeckSF', 'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 
+            'ScreenPorch', 'PoolArea', 'MiscVal']]
 
-        y = df['Saleprice']
+    y = df['Saleprice']
 
-        # split data into input and target
-        X = X.iloc[:, :-1].values
-        y = y.values.reshape(-1, 1)
+    # split data into input and target
+    X = X.iloc[:, :-1].values
+    y = y.values.reshape(-1, 1)
 
-        # Convert data to PyTorch tensors
-        X = torch.tensor(X, dtype=torch.float32)
-        y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1)
+    # Convert data to PyTorch tensors
+    X = torch.tensor(X, dtype=torch.float32)
+    y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1)
+
+    # Move input data to GPU
+    X = X.to(device)
+    y = y.to(device)
+
+    dataset = torch.utils.data.TensorDataset(X, y)
+    batch_size = 64
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
     
-		# Move input data to GPU
-        X = X.to(device)
-        y = y.to(device)
 
-        dataset = torch.utils.data.TensorDataset(X, y)
-        batch_size = 64
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        
+    # Define neural network architecture
+    class Net(nn.Module):
+        def __init__(self, hidden):
+            super(Net, self).__init__()
+            self.fc1 = nn.Linear(41, hidden)
+            self.fc2 = nn.Linear(hidden, 1)
+            self.relu = nn.ReLU()
 
-        # Define neural network architecture
-        class Net(nn.Module):
-            def __init__(self, hidden):
-                super(Net, self).__init__()
-                self.fc1 = nn.Linear(41, hidden)
-                self.fc2 = nn.Linear(hidden, 1)
-                self.relu = nn.ReLU()
+        def forward(self, x):
+            out = self.fc1(x)
+            out = self.relu(out)
+            out = self.fc2(out)
+            return out
 
-            def forward(self, x):
-                out = self.fc1(x)
-                out = self.relu(out)
-                out = self.fc2(out)
-                return out
+    # Instantiate neural network
 
-        # Instantiate neural network
+    net = Net(config["hidden_size"]).to(device)
 
-        net = Net(config["hidden_size"]).to(device)
+    # Define loss function and optimizer
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=config["lr"])
 
-        # Define loss function and optimizer
-        criterion = nn.MSELoss()
-        optimizer = torch.optim.Adam(net.parameters(), lr=config["lr"])
+    # Train the neural network
+    for epoch in range(config["epoches"]):
+        for i, batch in enumerate(dataloader):
+            X_batch, y_batch = batch
+            # Forward pass
+            outputs = net(X_batch)
+            loss = criterion(outputs, y_batch)
 
-        # Train the neural network
-        for epoch in range(config["epoches"]):
-            for i, batch in enumerate(dataloader):
-                X_batch, y_batch = batch
-                # Forward pass
-                outputs = net(X_batch)
-                loss = criterion(outputs, y_batch)
+            # Backward pass and optimize
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-                # Backward pass and optimize
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+            mlflow.log_metric("loss", loss.item())
+            mlflow.pytorch.log_model(net, "model")
 
-                mlflow.log_metric("loss", loss.item())
-                mlflow.pytorch.log_model(net, "model")
-
-                # Print progress
-                print("Iteration {}: running loss {:.4f}".format(i, loss.item()))
-            print(f"Finished epoch {epoch}")
+            # Print progress
+            print("Iteration {}: running loss {:.4f}".format(i, loss.item()))
+        print(f"Finished epoch {epoch}")
 
 
-        tune.report(loss=loss.item(), step=epoch+1)
+    tune.report(loss=loss.item(), step=epoch+1)
 
 
-        return  {"loss": loss.item()}
+    return  {"loss": loss.item()}
 
 
 if __name__ == "__main__":
@@ -112,7 +110,7 @@ if __name__ == "__main__":
             )
 
     tuner = tune.Tuner(
-        tune.with_resources(train_mnist, {"cpu": 4,"gpu": 1}),
+        tune.with_resources(train_mnist, {"cpu": 1}),
         tune_config=tune_config,
         run_config=RunConfig(
             verbose=3
