@@ -112,7 +112,7 @@ if __name__ == "__main__":
             )
 
     tuner = tune.Tuner(
-        tune.with_resources(train_mnist, {"cpu": 4,"gpu": 1, "memory": 2000}),
+        tune.with_resources(train_mnist, {"cpu": 4,"gpu": 1}),
         tune_config=tune_config,
         run_config=RunConfig(
             verbose=3
