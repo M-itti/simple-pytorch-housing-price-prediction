@@ -108,7 +108,7 @@ if __name__ == "__main__":
     tune_config = TuneConfig(
             metric="loss",
             mode="min",
-            num_samples=4
+            num_samples=1
     )
 
     tuner = tune.Tuner(
@@ -118,9 +118,9 @@ if __name__ == "__main__":
             verbose=3
     ),
         param_space={
-            "lr": tune.grid_search([0.001, 0.01, 0.1]),
-            "hidden_size": tune.choice([1,2,3]),
-            "epoches": tune.choice([5, 10, 11])
+            "lr": 0.01,
+            "hidden_size": 3,
+            "epoches": 5
         }
     )
     
