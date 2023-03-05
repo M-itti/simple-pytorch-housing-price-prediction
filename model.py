@@ -29,14 +29,18 @@ y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1)
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(41, 1)
-        self.fc2 = nn.Linear(1, 1)
+        self.fc1 = nn.Linear(41, 10)
+        self.fc2 = nn.Linear(10, 5)
+        self.fc3 = nn.Linear(5, 1)
         self.relu = nn.ReLU()
 
     def forward(self, x):
         out = self.fc1(x)
         out = self.relu(out)
         out = self.fc2(out)
+        out = self.relu(out)
+        out = self.fc3(out)
+        out = self.relu(out)
         return out
 
 # Instantiate neural network
@@ -44,10 +48,10 @@ net = Net()
 
 # Define loss function and optimizer
 criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.1)
 
 # Train the neural network
-num_epochs = 10000
+num_epochs = 15
 for epoch in range(num_epochs):
     # Forward pass
     outputs = net(X)
@@ -58,6 +62,4 @@ for epoch in range(num_epochs):
     loss.backward()
     optimizer.step()
 
-    # Print progress
-    if (epoch+1) % 100 == 0:
-        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+    print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')

@@ -11,14 +11,13 @@ from ray.tune import CLIReporter
 from ray.air.config import RunConfig
 from ray.tune import TuneConfig
 import os
+from sklearn.model_selection import train_test_split
 
-path = os.getcwd()
 
-def train_mnist(config):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # Load data
-    df = pd.read_csv(path+'/train.csv')
+def load_data(data_dir=f"{os.getcwd()}/train.csv"):
+    df = pd.read_csv(data_dir)
     X = df[['Id', 'OverallQual', 'YearBuilt', 'YearRemodAdd', 'BsmtFinType1_Unf', 
             'HasWoodDeck', 'HasOpenPorch', 'HasEnclosedPorch', 'Has3SsnPorch', 
             'HasScreenPorch', 'YearsSinceRemodel', 'Total_Home_Quality', 'LotFrontage', 
@@ -35,14 +34,18 @@ def train_mnist(config):
     X = X.iloc[:, :-1].values
     y = y.values.reshape(-1, 1)
 
-    # Convert data to PyTorch tensors
-    X = torch.tensor(X, dtype=torch.float32)
-    y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1)
+    X = torch.tensor(X, dtype=torch.float32).to(device)
+    y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1).to(device)
 
-    # Move input data to GPU
-    X = X.to(device)
-    y = y.to(device)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    assert all([i.is_cuda for i in [X_train, X_test, y_train, y_test]]), "move tensors to GPU"
 
+    return X_train, y_train, X_test, y_test
+
+
+def train_mnist(config):
+    x_train, y_train, _, _ = load_data()
     dataset = torch.utils.data.TensorDataset(X, y)
     batch_size = 40
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
