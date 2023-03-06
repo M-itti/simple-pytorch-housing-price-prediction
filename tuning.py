@@ -39,14 +39,15 @@ def load_data(data_dir=f"{os.getcwd()}/train.csv"):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    assert all([i.is_cuda for i in [X_train, X_test, y_train, y_test]]), "move tensors to GPU"
+    assert all([x.is_cuda for x in [X_train, X_test, y_train, y_test]]), "move tensors to GPU"
 
     return X_train, y_train, X_test, y_test
 
 
 def train_mnist(config):
-    x_train, y_train, _, _ = load_data()
-    dataset = torch.utils.data.TensorDataset(X, y)
+    # TODO: write a test for ray tune (test datasets are missing)
+    X_train, y_train, _, _ = load_data()
+    dataset = torch.utils.data.TensorDataset(X_train, y_train)
     batch_size = 40
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
     
