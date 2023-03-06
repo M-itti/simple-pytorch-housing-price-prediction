@@ -19,7 +19,7 @@ from ray.tune.schedulers import ASHAScheduler
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-def load_data(data_dir=f"{os.getcwd()}/train.csv"):
+def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
     # TODO: add more data.
     df = pd.read_csv(data_dir)
     X = df[['Id', 'OverallQual', 'YearBuilt', 'YearRemodAdd', 'BsmtFinType1_Unf', 
