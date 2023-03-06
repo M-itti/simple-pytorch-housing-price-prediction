@@ -1,6 +1,8 @@
+torch==1.13.1+cu116 -f https://download.pytorch.org/whl/cu116/torch_stable.html
 ray[default]
 ray[tune]
 ray[air]
 mlflow
 pandas
 numpy
+optuna
