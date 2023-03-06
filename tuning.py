@@ -12,6 +12,8 @@ from ray.air.config import RunConfig
 from ray.tune import TuneConfig
 import os
 from sklearn.model_selection import train_test_split
+from ray.tune.search.optuna import OptunaSearch
+
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -103,13 +105,17 @@ def train_mnist(config):
 
 if __name__ == "__main__":
     ray.init(num_gpus=1)
+    
+    algo = OptunaSearch()
 
     reporter = CLIReporter(max_progress_rows=20, metric_columns=["loss"], print_intermediate_tables=5)
     
     tune_config = TuneConfig(
             metric="loss",
             mode="min",
-            num_samples=4
+            num_samples=4,
+            search_alg=algo
+
     )
 
     tuner = tune.Tuner(
@@ -119,7 +125,7 @@ if __name__ == "__main__":
             verbose=3
     ),
         param_space={
-            "lr": tune.grid_search([0.001, 0.01, 0.1]),
+            "lr": 0.1000,
             "hidden_size": tune.choice([1,2,3]),
             "epoches": tune.choice([5, 10, 11])
         }
