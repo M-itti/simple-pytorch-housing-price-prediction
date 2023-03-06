@@ -104,9 +104,6 @@ def train_mnist(config):
 if __name__ == "__main__":
     ray.init(num_gpus=1)
 
-    #mlflow.set_tracking_uri('http://127.0.40:5000')
-    #mlflow.set_experiment("my-experiment")
-    
     reporter = CLIReporter(max_progress_rows=20, metric_columns=["loss"], print_intermediate_tables=5)
     
     tune_config = TuneConfig(
@@ -138,7 +135,3 @@ if __name__ == "__main__":
 
     best_config = best_result.config 
     print(best_config)
-
-    # Log best result
-    #mlflow.log_metric("loss", best_loss['loss'])
-    #mlflow.log_params(best_config)
