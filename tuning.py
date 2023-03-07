@@ -19,8 +19,9 @@ from ray.tune.schedulers import ASHAScheduler
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+batch_size = 40
+
 def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
-    # TODO: add more data.
     df = pd.read_csv(data_dir)
     X = df[['Id', 'OverallQual', 'YearBuilt', 'YearRemodAdd', 'BsmtFinType1_Unf', 
             'HasWoodDeck', 'HasOpenPorch', 'HasEnclosedPorch', 'Has3SsnPorch', 
@@ -42,6 +43,8 @@ def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
     y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1).to(device)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    print(y_train[0])
+    print(y_test[0])
     
     assert all([x.is_cuda for x in [X_train, X_test, y_train, y_test]]), "move tensors to GPU"
 
@@ -49,13 +52,14 @@ def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
 
 
 def train_mnist(config):
-    # TODO: write a test for ray tune (test datasets are missing)
     with mlflow.start_run():
-        X_train, y_train, _, _ = load_data()
-        dataset = torch.utils.data.TensorDataset(X_train, y_train)
-        batch_size = 40
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        
+        X_train, y_train, X_val, y_val = load_data()
+
+        train_dataset = torch.utils.data.TensorDataset(X_train, y_train)
+        val_dataset = torch.utils.data.TensorDataset(X_val, y_val)
+
+        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
         # Define neural network architecture
         class Net(nn.Module):
@@ -72,7 +76,6 @@ def train_mnist(config):
                 return out
 
         # Instantiate neural network
-
         net = Net(config["hidden_size"]).to(device)
 
         # Define loss function and optimizer
@@ -81,7 +84,9 @@ def train_mnist(config):
 
         # Train the neural network
         for epoch in range(config["epoches"]):
-            for i, batch in enumerate(dataloader): # 36
+            # Training loop
+            train_loss = 0
+            for i, batch in enumerate(train_dataloader): # 36
                 X_batch, y_batch = batch
                 # Forward pass
                 outputs = net(X_batch)
@@ -92,18 +97,38 @@ def train_mnist(config):
                 loss.backward()
                 optimizer.step()
 
+                train_loss += loss.item()
+
                 mlflow.log_metric("loss", loss.item())
                 mlflow.pytorch.log_model(net, "model")
 
                 # Print progress
                 print("Iteration {}: running loss {:.4f}".format(i, loss.item()))
-            print(f"Finished epoch {epoch}")
 
+           # validation loop
+            val_loss = 0
+            with torch.no_grad():
+                for i, batch in enumerate(val_dataloader):
+                    X_batch, y_batch = batch
+                    # Forward pass
+                    outputs = net(X_batch)
+                    loss = criterion(outputs, y_batch)
+
+                    val_loss += loss.item()
+
+            # Compute average loss over training and validation sets
+            train_loss /= len(train_dataloader)
+            val_loss /= len(val_dataloader)
+
+            # Log metrics
+            mlflow.log_metric("train_loss", train_loss, step=epoch)
+            mlflow.log_metric("val_loss", val_loss, step=epoch)
+
+            print(f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}")
 
         tune.report(loss=loss.item(), step=epoch+1)
 
-
-        return  {"loss": loss.item()}
+        return  {"loss": val_loss}
 
 
 if __name__ == "__main__":
@@ -111,8 +136,6 @@ if __name__ == "__main__":
 
     sha_scheduler = ASHAScheduler(
             time_attr='training_iteration',
-            #metric='loss',
-            #mode='min',
             max_t=100,
             grace_period=10,
             reduction_factor=3,
