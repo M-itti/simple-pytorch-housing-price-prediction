@@ -125,7 +125,6 @@ if __name__ == "__main__":
             metric="loss",
             mode="min",
             num_samples=2,
-            search_alg=OptunaSearch(),
             scheduler=sha_scheduler
             )
     tuner = tune.Tuner(
