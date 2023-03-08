@@ -42,12 +42,12 @@ X_train, y_train, X_val, y_val = load_data()
 
 # Build the model
 model = keras.Sequential([
-    keras.layers.Dense(config["hidden_size"], activation="relu", input_shape=(41,)),
+    keras.layers.Dense(config["hidden_size"], activation="relu", input_shape=(42,)),
     keras.layers.Dense(1)
 ])
 
 # Compile the model
-optimizer = keras.optimizers.Adam(lr=config["lr"])
+optimizer = keras.optimizers.Adam(learning_rate=config["lr"])
 model.compile(optimizer=optimizer, loss="mse", metrics=[keras.metrics.RootMeanSquaredError()])
 
 # Train the model
