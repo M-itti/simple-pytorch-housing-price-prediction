@@ -2,6 +2,7 @@ from tensorflow import keras
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
+import os
 
 def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
     df = pd.read_csv(data_dir)
