@@ -6,30 +6,21 @@ import os
 
 def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
     df = pd.read_csv(data_dir)
-    X = df[['Id', 'OverallQual', 'YearBuilt', 'YearRemodAdd', 'BsmtFinType1_Unf', 
-            'HasWoodDeck', 'HasOpenPorch', 'HasEnclosedPorch', 'Has3SsnPorch', 
-            'HasScreenPorch', 'YearsSinceRemodel', 'Total_Home_Quality', 'LotFrontage', 
-            'LotArea', 'OverallCond', 'MasVnrArea', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 
-            'TotalBsmtSF', '1stFlrSF', '2ndFlrSF', 'LowQualFinSF', 'GrLivArea', 
-            'BsmtFullBath', 'BsmtHalfBath', 'FullBath', 'HalfBath', 'BedroomAbvGr', 
-            'KitchenAbvGr', 'TotRmsAbvGrd', 'Fireplaces', 'GarageYrBlt', 'GarageCars', 
-            'GarageArea', 'WoodDeckSF', 'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 
-            'ScreenPorch', 'PoolArea', 'MiscVal']]
+    X = df[['Id', 'OverallQual', 'YearBuilt', 'YearRemodAdd', 'BsmtFinType1_Unf',
+            'HasWoodDeck', 'HasOpenPorch', 'HasEnclosedPorch', 'Has3SsnPorch',
+            'HasScreenPorch', 'YearsSinceRemodel', 'Total_Home_Quality', 'LotFrontage',
+            'LotArea', 'OverallCond', 'MasVnrArea', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF',
+            'TotalBsmtSF', '1stFlrSF', '2ndFlrSF', 'LowQualFinSF', 'GrLivArea',
+            'BsmtFullBath', 'BsmtHalfBath', 'FullBath', 'HalfBath', 'BedroomAbvGr',
+            'KitchenAbvGr', 'TotRmsAbvGrd', 'Fireplaces', 'GarageYrBlt', 'GarageCars',
+            'GarageArea', 'WoodDeckSF', 'OpenPorchSF', 'EnclosedPorch', '3SsnPorch',
+            'ScreenPorch', 'PoolArea', 'MiscVal']].values
 
-    y = df['Saleprice']
-
-    # split data into input and target
-    X = X.iloc[:, :-1].values
-    y = y.values.reshape(-1, 1)
-
-    X = torch.tensor(X, dtype=torch.float32).to(device)
-    y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1).to(device)
+    y = df['Saleprice'].values
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    assert all([x.is_cuda for x in [X_train, X_test, y_train, y_test]]), "move tensors to GPU"
 
-    return X_train, y_train, X_test, y_test
+    return X_train.astype(np.float32), y_train.astype(np.float32), X_test.astype(np.float32), y_test.astype(np.float32)
 
 
 config = {
