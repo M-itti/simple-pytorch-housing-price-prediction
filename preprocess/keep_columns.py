@@ -2,7 +2,7 @@ import pandas as pd
 
 # Create a sample dataframe
 
-df = pd.read_csv('raw_train.csv')
+df = pd.read_csv('../data/raw_test.csv')
 
 # List of columns to keep
 
@@ -23,5 +23,5 @@ cols_to_keep = ['Id', 'OverallQual', 'YearBuilt', 'YearRemodAdd', 'BsmtFinType1_
 df = df[cols_to_keep]
 
 # Display the resulting dataframe
-print(df.to_csv('train.csv'))
+print(df.to_csv('test.csv'))
 print(df.head())

@@ -43,15 +43,13 @@ def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
     y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1).to(device)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    print(y_train[0])
-    print(y_test[0])
     
     assert all([x.is_cuda for x in [X_train, X_test, y_train, y_test]]), "move tensors to GPU"
 
     return X_train, y_train, X_test, y_test
 
 
-def train_mnist(config):
+def train(config):
     with mlflow.start_run():
         X_train, y_train, X_val, y_val = load_data()
 
@@ -132,6 +130,8 @@ def train_mnist(config):
 
 
 if __name__ == "__main__":
+    exp_id = mlflow.create_experiment("house_price_prediction")
+    mlflow.set_experiment(exp_id)
     ray.init(num_gpus=1)   
 
     sha_scheduler = ASHAScheduler(
@@ -152,7 +152,7 @@ if __name__ == "__main__":
             scheduler=sha_scheduler
             )
     tuner = tune.Tuner(
-        tune.with_resources(train_mnist, {"gpu": 1}),
+        tune.with_resources(train, {"gpu": 1}),
         tune_config=tune_config,
         run_config=RunConfig(
             verbose=3
