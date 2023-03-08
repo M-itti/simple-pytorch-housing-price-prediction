@@ -29,12 +29,16 @@ config = {
     "hidden_size": 2,
     "batch_size": 38
 }
-
+'''
 # Load the data
 X, y = load_data()
 
 # Split the data into training and validation sets
 X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+'''
+
+# Load the data
+X_train, y_train, X_val, y_val = load_data()
 
 # Build the model
 model = keras.Sequential([
