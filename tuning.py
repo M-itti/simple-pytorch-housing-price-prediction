@@ -1,7 +1,8 @@
+#!/usr/bin/env python3.10
+import ray
 import torch
 import torch.nn as nn
 import pandas as pd
-import ray
 from ray import tune
 from ray.tune.examples.mnist_pytorch import get_data_loaders, ConvNet, train, test
 import mlflow 
@@ -10,16 +11,13 @@ from torch.utils.data import DataLoader
 from ray.tune import CLIReporter
 from ray.air.config import RunConfig
 from ray.tune import TuneConfig
-import os
 from sklearn.model_selection import train_test_split
 from ray.tune.search.optuna import OptunaSearch
 from ray.tune.schedulers import ASHAScheduler
 
-
+import os
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
-batch_size = 40
 
 def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
     df = pd.read_csv(data_dir)
@@ -43,30 +41,26 @@ def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
     y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1).to(device)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    print(y_train[0])
-    print(y_test[0])
     
     assert all([x.is_cuda for x in [X_train, X_test, y_train, y_test]]), "move tensors to GPU"
-
     return X_train, y_train, X_test, y_test
 
-
-def train_mnist(config):
+def train(config):
     with mlflow.start_run():
         X_train, y_train, X_val, y_val = load_data()
 
         train_dataset = torch.utils.data.TensorDataset(X_train, y_train)
         val_dataset = torch.utils.data.TensorDataset(X_val, y_val)
 
-        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=config["batch_size"], shuffle=True)
+        val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=config["batch_size"], shuffle=False)
 
         # Define neural network architecture
         class Net(nn.Module):
             def __init__(self, hidden):
                 super(Net, self).__init__()
-                self.fc1 = nn.Linear(41, hidden)
-                self.fc2 = nn.Linear(hidden, 1)
+                self.fc1 = nn.Linear(41, hidden[0])
+                self.fc2 = nn.Linear(hidden[1], 1)
                 self.relu = nn.ReLU()
 
             def forward(self, x):
@@ -86,6 +80,7 @@ def train_mnist(config):
         for epoch in range(config["epoches"]):
             # Training loop
             train_loss = 0
+            train_total_mape = 0
             for i, batch in enumerate(train_dataloader): # 36
                 X_batch, y_batch = batch
                 # Forward pass
@@ -99,6 +94,10 @@ def train_mnist(config):
 
                 train_loss += loss.item()
 
+                with torch.no_grad():
+                    mape = torch.mean(torch.abs((outputs - y_batch) / y_batch)) * 100
+                train_total_mape = += mape.item()
+
                 mlflow.log_metric("loss", loss.item())
                 mlflow.pytorch.log_model(net, "model")
 
@@ -107,6 +106,9 @@ def train_mnist(config):
 
            # validation loop
             val_loss = 0
+            val_total_mape = 0
+            net.eval()
+
             with torch.no_grad():
                 for i, batch in enumerate(val_dataloader):
                     X_batch, y_batch = batch
@@ -116,7 +118,12 @@ def train_mnist(config):
 
                     val_loss += loss.item()
 
+                    mape = torch.mean(torch.abs((outputs - y_batch) / y_batch)) * 100
+                    val_total_mape = += mape.item()
+
             # Compute average loss over training and validation sets
+            val_avg_mape = val_total_mape / len(val_dataloader)
+            train_avg_mape = train_total_mape / len(train_dataloader)
             train_loss /= len(train_dataloader)
             val_loss /= len(val_dataloader)
 
@@ -124,7 +131,7 @@ def train_mnist(config):
             mlflow.log_metric("train_loss", train_loss, step=epoch)
             mlflow.log_metric("val_loss", val_loss, step=epoch)
 
-            print(f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}")
+            print("Epoch {}: train loss {:.4f}, val loss {:.4f}, val MAPE {:.2f}%, train MAPE {:.2f}".format(epoch+1, train_loss, val_loss, val_avg_mape, train_avg_mape))
 
         tune.report(loss=loss.item(), step=epoch+1)
 
@@ -132,6 +139,8 @@ def train_mnist(config):
 
 
 if __name__ == "__main__":
+    exp_id = mlflow.create_experiment("house_price_prediction")
+    mlflow.set_experiment(exp_id)
     ray.init(num_gpus=1)   
 
     sha_scheduler = ASHAScheduler(
@@ -152,16 +161,17 @@ if __name__ == "__main__":
             scheduler=sha_scheduler
             )
     tuner = tune.Tuner(
-        tune.with_resources(train_mnist, {"gpu": 1}),
+        tune.with_resources(train, {"gpu": 1}),
         tune_config=tune_config,
         run_config=RunConfig(
             verbose=3
     ),
         param_space={
             "lr": 0.1000,
-            "hidden_size": tune.choice([1,2,3]),
+            "hidden_sizes": tune.choice([[128, 64], [256, 128, 64], [512, 256, 128, 64]]),
+            "dropout_rates": tune.choice([0.0, 0.1])
             "epoches": tune.choice([8, 7, 11]),
-            "batch_size": tune.choice([32,36,38]),
+            "batch_size": tune.choice([32,36,64]),
             "num_layers": tune.choice([1,2,3])
         }
     )
