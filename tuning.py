@@ -14,14 +14,22 @@ from ray.tune import TuneConfig
 from sklearn.model_selection import train_test_split
 from ray.tune.search.optuna import OptunaSearch
 from ray.tune.schedulers import ASHAScheduler
-
+import optuna
 import os
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
     df = pd.read_csv(data_dir)
-    X = df[['TotalSF_log', 'TotalSF', 'Id', 'OverallQual', 'YearBuilt', 'YearRemodAdd', 'BsmtFinType1_Unf', 
+
+    X = df[['TotalBsmtSF_log_sq', 'GrLivArea_log_sq', 'TotalSF', 'TotalSF_log', 'Total_sqr_footage', 'Total_Bathrooms', 'Total_porch_sf', 'haspool', 'has2ndfloor', 'hasgarage', 
+            'hasbsmt', 'hasfireplace', 'LotFrontage_log', 'LotArea_log', 'MasVnrArea_log', 'BsmtFinSF1_log', 
+            'BsmtUnfSF_log', 'TotalBsmtSF_log', '1stFlrSF_log', '2ndFlrSF_log', 'LowQualFinSF_log', 
+            'GrLivArea_log', 'BsmtFullBath_log', 'FullBath_log', 'HalfBath_log', 'BedroomAbvGr_log', 
+            'KitchenAbvGr_log', 'TotRmsAbvGrd_log', 'Fireplaces_log', 'GarageCars_log', 'GarageArea_log', 
+            'WoodDeckSF_log', 'OpenPorchSF_log', 'EnclosedPorch_log', 'ScreenPorch_log', 'PoolArea_log', 
+            'MiscVal_log', 'YearRemodAdd_log', 'TotalSF_log',
+            'Id', 'OverallQual', 'YearBuilt', 'YearRemodAdd', 'BsmtFinType1_Unf', 
             'HasWoodDeck', 'HasOpenPorch', 'HasEnclosedPorch', 'Has3SsnPorch', 
             'HasScreenPorch', 'YearsSinceRemodel', 'Total_Home_Quality', 'LotFrontage', 
             'LotArea', 'OverallCond', 'MasVnrArea', 'BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF', 
@@ -59,12 +67,14 @@ def train(config):
         class Net(nn.Module):
             def __init__(self, hidden):
                 super(Net, self).__init__()
-                self.fc1 = nn.Linear(41, hidden[0])
-                self.fc2 = nn.Linear(hidden[1], 1)
+                self.fc1 = nn.Linear(80, hidden[0])
+                self.dropout = nn.Dropout(p=config["dropout_rates"])
+                self.fc2 = nn.Linear(hidden[0], 1)
                 self.relu = nn.ReLU()
 
             def forward(self, x):
                 out = self.fc1(x)
+                out = self.dropout(out)
                 out = self.relu(out)
                 out = self.fc2(out)
                 return out
@@ -96,7 +106,7 @@ def train(config):
 
                 with torch.no_grad():
                     mape = torch.mean(torch.abs((outputs - y_batch) / y_batch)) * 100
-                train_total_mape = += mape.item()
+                train_total_mape += mape.item()
 
                 mlflow.log_metric("loss", loss.item())
                 mlflow.pytorch.log_model(net, "model")
@@ -119,7 +129,7 @@ def train(config):
                     val_loss += loss.item()
 
                     mape = torch.mean(torch.abs((outputs - y_batch) / y_batch)) * 100
-                    val_total_mape = += mape.item()
+                    val_total_mape += mape.item()
 
             # Compute average loss over training and validation sets
             val_avg_mape = val_total_mape / len(val_dataloader)
@@ -139,8 +149,7 @@ def train(config):
 
 
 if __name__ == "__main__":
-    exp_id = mlflow.create_experiment("house_price_prediction")
-    mlflow.set_experiment(exp_id)
+    exp_id = mlflow.set_experiment("house_price_prediction")
     ray.init(num_gpus=1)   
 
     sha_scheduler = ASHAScheduler(
@@ -166,14 +175,14 @@ if __name__ == "__main__":
         run_config=RunConfig(
             verbose=3
     ),
-        param_space={
-            "lr": 0.1000,
-            "hidden_sizes": tune.choice([[128, 64], [256, 128, 64], [512, 256, 128, 64]]),
-            "dropout_rates": tune.choice([0.0, 0.1])
-            "epoches": tune.choice([8, 7, 11]),
-            "batch_size": tune.choice([32,36,64]),
-            "num_layers": tune.choice([1,2,3])
-        }
+        param_space = {
+            "lr": tune.loguniform(1e-5, 1e-1),
+            "hidden_size": tune.choice([[128, 64], [256, 128, 64], [512, 256, 128, 64]]),
+            "dropout_rates": tune.uniform(0.0, 0.5),
+            "epoches": tune.choice([9, 12, 14]),
+            "batch_size": tune.choice([32, 64, 128]),
+            "num_layers": tune.choice([1, 2, 3, 4])
+            }
     )
     
     results = tuner.fit()
@@ -186,3 +195,5 @@ if __name__ == "__main__":
 
     best_config = best_result.config 
     print(best_config)
+
+

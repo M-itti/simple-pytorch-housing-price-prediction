@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
+import torch.nn.functional as F
 
 import os
 import random
@@ -77,11 +78,10 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.fc1 = nn.Linear(80, hidden)
         self.fc2 = nn.Linear(hidden, 1)
-        self.relu = nn.ReLU()
 
     def forward(self, x):
         out = self.fc1(x)
-        out = self.relu(out)
+        out = F.relu(out)
         out = self.fc2(out)
         return out
 
