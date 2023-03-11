@@ -2,17 +2,25 @@ import torch
 import torch
 import torch.nn as nn
 import pandas as pd
+import numpy as np
 from torch.utils.data import DataLoader
-import os
 from sklearn.model_selection import train_test_split
+
+import os
+import random
+
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.seed()
 
 device = "cuda" if torch.cuda.is_available else "cpu"
 
-def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
+def load_data(data_dir=os.path.join(os.getcwd(), 'data', 'train.csv')):
     df = pd.read_csv(data_dir)
 
-
-    X = df[['Total_sqr_footage', 'Total_Bathrooms', 'Total_porch_sf', 'haspool', 'has2ndfloor', 'hasgarage', 
+    X = df[['TotalBsmtSF_log_sq', 'GrLivArea_log_sq', 'TotalSF', 'TotalSF_log', 'Total_sqr_footage', 'Total_Bathrooms', 'Total_porch_sf', 'haspool', 'has2ndfloor', 'hasgarage', 
             'hasbsmt', 'hasfireplace', 'LotFrontage_log', 'LotArea_log', 'MasVnrArea_log', 'BsmtFinSF1_log', 
             'BsmtUnfSF_log', 'TotalBsmtSF_log', '1stFlrSF_log', '2ndFlrSF_log', 'LowQualFinSF_log', 
             'GrLivArea_log', 'BsmtFullBath_log', 'FullBath_log', 'HalfBath_log', 'BedroomAbvGr_log', 
@@ -38,7 +46,7 @@ def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
     X = torch.tensor(X, dtype=torch.float32).to(device)
     y = torch.tensor(y, dtype=torch.float32).reshape(-1, 1).to(device)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     
     assert all([x.is_cuda for x in [X_train, X_test, y_train, y_test]]), "move tensors to GPU"
 
@@ -67,7 +75,7 @@ val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=config["bat
 class Net(nn.Module):
     def __init__(self, hidden):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(76, hidden)
+        self.fc1 = nn.Linear(80, hidden)
         self.fc2 = nn.Linear(hidden, 1)
         self.relu = nn.ReLU()
 
