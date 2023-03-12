@@ -68,13 +68,11 @@ def train(config):
             def __init__(self, hidden):
                 super(Net, self).__init__()
                 self.fc1 = nn.Linear(80, hidden[0])
-                self.dropout = nn.Dropout(p=config["dropout_rates"])
                 self.fc2 = nn.Linear(hidden[0], 1)
                 self.relu = nn.ReLU()
 
             def forward(self, x):
                 out = self.fc1(x)
-                out = self.dropout(out)
                 out = self.relu(out)
                 out = self.fc2(out)
                 return out
@@ -177,11 +175,9 @@ if __name__ == "__main__":
     ),
         param_space = {
             "lr": tune.loguniform(1e-5, 1e-1),
-            "hidden_size": tune.choice([[128, 64], [256, 128, 64], [512, 256, 128, 64]]),
-            "dropout_rates": tune.uniform(0.0, 0.5),
-            "epoches": tune.choice([9, 12, 14]),
-            "batch_size": tune.choice([32, 64, 128]),
-            "num_layers": tune.choice([1, 2, 3, 4])
+            "epoches": 36,
+            "batch_size": 36,
+            "num_layers": tune.choice([2, 3, 4, 5]),
             }
     )
     
@@ -195,5 +191,9 @@ if __name__ == "__main__":
 
     best_config = best_result.config 
     print(best_config)
+
+    # cleanup
+    ray.shutdown()
+    
 
 
