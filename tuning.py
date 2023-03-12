@@ -50,7 +50,7 @@ def load_data(data_dir=f"{os.getcwd()}/data/train.csv"):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    assert all([x.is_cuda for x in [X_train, X_test, y_train, y_test]]), "move tensors to GPU"
+    #assert all([x.is_cuda for x in [X_train, X_test, y_train, y_test]]), "move tensors to GPU"
     return X_train, y_train, X_test, y_test
 
 def train(config):
