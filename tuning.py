@@ -67,8 +67,8 @@ def train(config):
         class Net(nn.Module):
             def __init__(self, hidden):
                 super(Net, self).__init__()
-                self.fc1 = nn.Linear(80, hidden[0])
-                self.fc2 = nn.Linear(hidden[0], 1)
+                self.fc1 = nn.Linear(80, 20)
+                self.fc2 = nn.Linear(20, 1)
                 self.relu = nn.ReLU()
 
             def forward(self, x):
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     tune_config = TuneConfig(
             metric="loss",
             mode="min",
-            num_samples=4,
+            num_samples=15,
             search_alg=OptunaSearch(),
             scheduler=sha_scheduler
             )
@@ -178,6 +178,7 @@ if __name__ == "__main__":
             "epoches": 36,
             "batch_size": 36,
             "num_layers": tune.choice([2, 3, 4, 5]),
+            "hidden_size": 20
             }
     )
     
